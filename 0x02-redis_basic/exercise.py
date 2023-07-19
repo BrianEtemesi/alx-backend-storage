@@ -8,22 +8,31 @@ from typing import Union, Callable, Optional
 from functools import wraps
 
 
-def replay(method: Callable):
+def replay(fn: Callable) -> None:
     """
-    Display the history of calls for a particular function.
+    Displays the call history of a Cache class' method.
     """
-    input_key = f"{method.__qualname__}:inputs"
-    output_key = f"{method.__qualname__}:outputs"
+    if fn is None or not hasattr(fn, '__self__'):
+        return
+    redis_store = getattr(fn.__self__, '_redis', None)
+    if not isinstance(redis_store, redis.Redis):
+        return
+    func_name = fn.__qualname__
+    in_key = '{}:inputs'.format(func_name)
+    out_key = '{}:outputs'.format(func_name)
+    func_call_count = 0
+    if redis_store.exists(func_name) != 0:
+        func_call_count = int(redis_store.get(func_name))
+    print('{} was called {} times:'.format(func_name, func_call_count))
+    func_inputs = redis_store.lrange(in_key, 0, -1)
+    func_outputs = redis_store.lrange(out_key, 0, -1)
+    for func_input, func_output in zip(func_inputs, func_outputs):
+        print('{}(*{}) -> {}'.format(
+            func_name,
+            func_input.decode("utf-8"),
+            func_output,
+        ))
 
-    input_history = cache._redis.lrange(input_key, 0, -1)
-    output_history = cache._redis.lrange(output_key, 0, -1)
-
-    print(f"{method.__qualname__} was called {len(input_history)} times:")
-
-    for input_args, output in zip(input_history, output_history):
-        input_args = input_args.decode("utf-8")
-        output = output.decode("utf-8")
-        print(f"{method.__qualname__}(*{input_args}) -> {output}")
 
 
 def count_calls(method: Callable) -> Callable:
