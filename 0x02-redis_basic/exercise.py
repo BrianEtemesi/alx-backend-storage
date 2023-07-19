@@ -5,6 +5,22 @@ defines a function to cache strings
 import redis
 from uuid import UUID, uuid4
 from typing import Union, Callable, Optional
+from functools import wraps
+
+
+def count_calls(method: Callable) -> Callable:
+    """
+    Decorator to count the number of times a method is called.
+    """
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        key = method.__qualname__
+        count_key = f"{key}_calls"
+        current_count = self._redis.incr(count_key)
+        return method(self, *args, **kwargs)
+
+    return wrapper
+
 
 class Cache:
     """
@@ -14,6 +30,7 @@ class Cache:
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         """
         Store the input data in Redis using a random key and return the key.
