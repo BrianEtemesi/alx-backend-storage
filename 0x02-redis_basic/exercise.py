@@ -8,6 +8,24 @@ from typing import Union, Callable, Optional
 from functools import wraps
 
 
+def replay(method: Callable):
+    """
+    Display the history of calls for a particular function.
+    """
+    input_key = f"{method.__qualname__}:inputs"
+    output_key = f"{method.__qualname__}:outputs"
+
+    input_history = cache._redis.lrange(input_key, 0, -1)
+    output_history = cache._redis.lrange(output_key, 0, -1)
+
+    print(f"{method.__qualname__} was called {len(input_history)} times:")
+
+    for input_args, output in zip(input_history, output_history):
+        input_args = input_args.decode("utf-8")
+        output = output.decode("utf-8")
+        print(f"{method.__qualname__}(*{input_args}) -> {output}")
+
+
 def count_calls(method: Callable) -> Callable:
     """
     Decorator to count the number of times a method is called.
